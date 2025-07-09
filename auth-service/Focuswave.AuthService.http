@@ -1,0 +1,6 @@
+@Focuswave.AuthService_HostAddress = http://localhost:5298
+
+GET {{Focuswave.AuthService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
