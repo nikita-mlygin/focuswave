@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "watch-focussession",
+            "type": "shell",
+            "command": "dotnet watch run",
+            "args": [],
+            "options": {
+                "cwd": "${workspaceFolder}/src/Focuswave.FocusSessionService"
+            },
+            "isBackground": true,
+            "problemMatcher": "$msCompile"
+        },
+        
+    ]
+}
