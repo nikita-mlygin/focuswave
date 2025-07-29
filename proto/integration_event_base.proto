@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package focuswave.integration;
+
+import "google/protobuf/timestamp.proto";
+
+message IntegrationEvent {
+  string eventId = 1;
+  string correlationId = 2;
+  google.protobuf.Timestamp occurredOn = 3;
+  string source = 4;
+  map<string, string> metadata = 5;
+}

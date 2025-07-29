@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package focuswave.integration.events;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "integration_event_base.proto";
+
+message FocusCycleEvent {
+  IntegrationEvent base = 1;
+
+  string focusCycleId = 2;
+
+  google.protobuf.Timestamp eventTime = 3; // время старта или стопа
+
+  enum EventType {
+    START = 0;
+    END = 1;
+  }
+  EventType eventType = 4;
+
+  oneof detail {
+    FocusSessionDetail focusSession = 5;
+    PlannedBreakDetail plannedBreak = 6;
+    UnplannedInterruptionDetail unplannedInterruption = 7;
+    FocusCycleDetail focusCycle = 8;
+  }
+}
+
+message FocusSessionDetail {
+  google.protobuf.Duration duration = 1;
+}
+
+message PlannedBreakDetail {
+  google.protobuf.Duration duration = 1;
+}
+
+message UnplannedInterruptionDetail {
+  // можно добавить поля, если нужны
+}
+
+message FocusCycleDetail {
+  string userId = 1;
+}
