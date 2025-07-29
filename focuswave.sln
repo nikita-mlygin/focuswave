@@ -3,6 +3,20 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{EC8429BE-E21B-4C50-87C2-4506F1A3910F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Focuswave.AuthService.Tests", "test\Focuswave.AuthService.Tests\Focuswave.AuthService.Tests.csproj", "{45EDE31A-401C-4CB7-97DD-444A2FCE39B8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{0941D186-3578-4F70-9668-6E11C424E854}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Focuswave.AuthService", "src\Focuswave.AuthService\Focuswave.AuthService.csproj", "{BDEF7AE8-F01D-4A71-BD25-FD0731B4F26B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Focuswave.FocusSessionService", "src\Focuswave.FocusSessionService\Focuswave.FocusSessionService.csproj", "{6EFFCFD6-C74C-4103-A007-144F97958B80}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Focuswave.Common", "src\Focuswave.Common\Focuswave.Common.csproj", "{AA6A5D85-6936-4D41-86E1-4E0B63E89AD4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Focuswave.FocusSessionService.Test", "test\Focuswave.FocusSessionService.Test\Focuswave.FocusSessionService.Test.csproj", "{CD928899-AF42-49BB-B3AA-6034140FBF98}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -10,5 +24,34 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{45EDE31A-401C-4CB7-97DD-444A2FCE39B8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{45EDE31A-401C-4CB7-97DD-444A2FCE39B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{45EDE31A-401C-4CB7-97DD-444A2FCE39B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{45EDE31A-401C-4CB7-97DD-444A2FCE39B8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BDEF7AE8-F01D-4A71-BD25-FD0731B4F26B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BDEF7AE8-F01D-4A71-BD25-FD0731B4F26B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BDEF7AE8-F01D-4A71-BD25-FD0731B4F26B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BDEF7AE8-F01D-4A71-BD25-FD0731B4F26B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6EFFCFD6-C74C-4103-A007-144F97958B80}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6EFFCFD6-C74C-4103-A007-144F97958B80}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6EFFCFD6-C74C-4103-A007-144F97958B80}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6EFFCFD6-C74C-4103-A007-144F97958B80}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AA6A5D85-6936-4D41-86E1-4E0B63E89AD4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA6A5D85-6936-4D41-86E1-4E0B63E89AD4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA6A5D85-6936-4D41-86E1-4E0B63E89AD4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA6A5D85-6936-4D41-86E1-4E0B63E89AD4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CD928899-AF42-49BB-B3AA-6034140FBF98}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD928899-AF42-49BB-B3AA-6034140FBF98}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD928899-AF42-49BB-B3AA-6034140FBF98}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CD928899-AF42-49BB-B3AA-6034140FBF98}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{45EDE31A-401C-4CB7-97DD-444A2FCE39B8} = {EC8429BE-E21B-4C50-87C2-4506F1A3910F}
+		{BDEF7AE8-F01D-4A71-BD25-FD0731B4F26B} = {0941D186-3578-4F70-9668-6E11C424E854}
+		{6EFFCFD6-C74C-4103-A007-144F97958B80} = {0941D186-3578-4F70-9668-6E11C424E854}
+		{AA6A5D85-6936-4D41-86E1-4E0B63E89AD4} = {0941D186-3578-4F70-9668-6E11C424E854}
+		{CD928899-AF42-49BB-B3AA-6034140FBF98} = {EC8429BE-E21B-4C50-87C2-4506F1A3910F}
 	EndGlobalSection
 EndGlobal
