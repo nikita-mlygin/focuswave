@@ -7,7 +7,7 @@ using Google.Protobuf.WellKnownTypes;
 using Duration = Google.Protobuf.WellKnownTypes.Duration;
 using Timestamp = Google.Protobuf.WellKnownTypes.Timestamp;
 
-namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSession.Start;
+namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSessions.Start;
 
 public class FocusSessionStartedHandler(IProducer<string, FocusCycleEvent> kafkaProducer)
     : IEventHandler<FocusSessionStarted>

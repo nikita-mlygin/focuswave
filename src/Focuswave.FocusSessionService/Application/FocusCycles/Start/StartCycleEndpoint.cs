@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 namespace Focuswave.FocusSessionService.Application.FocusCycles.Start;
 
 // Using a type alias for the return type improves readability and simplifies the endpoint definition.
-using ReturnType = Results<NoContent, ProblemHttpResult>;
+using ReturnType = Results<NoContent, BadRequest<string>>;
 
 /// <summary>
 /// Defines the endpoint for initiating a new focus cycle.
@@ -38,6 +38,9 @@ public class StartCycleEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
     /// <returns>A result indicating success (NoContent) or failure (ProblemHttpResult).</returns>
     public override async Task<ReturnType> ExecuteAsync(StartCycleRequest req, CancellationToken ct)
     {
+        if (await repo.GetByUserIdAsync(req.UserId) != null)
+            return TypedResults.BadRequest("Already created");
+
         // The aggregate creation encapsulates business logic and validation.
         var res = FocusCycleAggregate.Create(req.UserId, req.StartTime, ed);
 
@@ -51,7 +54,7 @@ public class StartCycleEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
         // Pattern match on the result to provide an appropriate HTTP response.
         return res.Match<ReturnType>(
             Succ: _ => TypedResults.NoContent(), // On success, return a 204 NoContent response.
-            Fail: err => TypedResults.Problem(err.Message) // On failure, return a problem details response with the error message.
+            Fail: err => TypedResults.BadRequest(err.Message) // On failure, return a problem details response with the error message.
         );
     }
 }

@@ -1,0 +1,548 @@
+using FastEndpoints;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles;
+
+public class FocusCycleGroup : Group
+{
+    public FocusCycleGroup()
+    {
+        Configure(
+            "focus-cycle",
+            ep =>
+            {
+                ep.Description(d => d.WithTags("focus-cycle"));
+            }
+        );
+    }
+}
+using FastEndpoints;
+using Focuswave.Common.DomainEvents;
+using Microsoft.AspNetCore.Http.HttpResults;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSessions.End;
+
+using ReturnType = Results<NoContent, BadRequest<string>>;
+
+public class EndSessionEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
+    : Endpoint<EndSessionRequest, ReturnType>
+{
+    public override void Configure()
+    {
+        Post("/end-session");
+        AllowAnonymous();
+        Group<FocusCycleGroup>();
+    }
+
+    public override async Task<ReturnType> ExecuteAsync(EndSessionRequest req, CancellationToken ct)
+    {
+        var maybe = await repo.GetByUserIdAsync(req.UserId);
+        var result = maybe
+            .ToFin("cycle not found")
+            .Bind(c => c.EndSession(req.UserId, req.EndTime, ed).Map(_ => c));
+
+        if (result.IsSucc)
+            await repo.SaveAsync(result.ThrowIfFail());
+
+        await ed.DispatchAsync(ct);
+
+        return result.Match<ReturnType>(
+            Succ: _ => TypedResults.NoContent(),
+            Fail: e => TypedResults.BadRequest(e.Message)
+        );
+    }
+}
+namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSessions.End;
+
+public record EndSessionRequest(Guid UserId, DateTimeOffset EndTime);
+using Confluent.Kafka;
+using Focuswave.Common.DomainEvents;
+using Focuswave.FocusSessionService.Application.IntegrationEvents;
+using Focuswave.FocusSessionService.Domain.FocusCycles.Events;
+using Focuswave.Integration.Events;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSessions.End;
+
+public class FocusSessionEndedHandler(IProducer<string, FocusCycleEvent> kafka)
+    : IEventHandler<FocusSessionEnded>
+{
+    public async Task HandleAsync(FocusSessionEnded e, CancellationToken ct)
+    {
+        var ev = new FocusCycleEvent
+        {
+            Base = IntegrationEventFactory.Create(e.EndedAt),
+            FocusCycleId = e.FocusCycleId.ToString(),
+            EventTime = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
+                e.EndedAt.UtcDateTime
+            ),
+            EventType = FocusCycleEvent.Types.EventType.End,
+        };
+
+        await kafka.ProduceAsync(
+            "focus-cycle-events",
+            new Message<string, FocusCycleEvent> { Key = e.FocusCycleId.ToString(), Value = ev },
+            ct
+        );
+    }
+}
+using Confluent.Kafka;
+using Focuswave.Common.DomainEvents;
+using Focuswave.FocusSessionService.Domain.FocusCycles.Events;
+using Focuswave.Integration;
+using Focuswave.Integration.Events;
+using Google.Protobuf.WellKnownTypes;
+using Duration = Google.Protobuf.WellKnownTypes.Duration;
+using Timestamp = Google.Protobuf.WellKnownTypes.Timestamp;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSessions.Start;
+
+public class FocusSessionStartedHandler(IProducer<string, FocusCycleEvent> kafkaProducer)
+    : IEventHandler<FocusSessionStarted>
+{
+    private readonly IProducer<string, FocusCycleEvent> producer = kafkaProducer;
+    private readonly string topicName = "focus-cycle-events"; // TODO
+
+    public async Task HandleAsync(FocusSessionStarted domainEvent, CancellationToken ct)
+    {
+        Console.WriteLine("Produce event");
+
+        var integrationEvent = new FocusCycleEvent
+        {
+            Base = new IntegrationEvent
+            {
+                EventId = Guid.NewGuid().ToString(),
+                CorrelationId = Guid.NewGuid().ToString(),
+                OccurredOn = Timestamp.FromDateTime(domainEvent.OccurredOn.UtcDateTime),
+                Source = "FocusSessionService",
+            },
+            FocusCycleId = domainEvent.FocusCycleId.ToString(),
+            EventTime = Timestamp.FromDateTime(domainEvent.StartedAt.UtcDateTime),
+            EventType = FocusCycleEvent.Types.EventType.Start,
+            FocusSession = new FocusSessionDetail
+            {
+                Duration = Duration.FromTimeSpan(domainEvent.Duration),
+            },
+        };
+
+        await producer.ProduceAsync(
+            topicName,
+            new Message<string, FocusCycleEvent>
+            {
+                Key = domainEvent.FocusCycleId.ToString(),
+                Value = integrationEvent,
+            },
+            ct
+        );
+    }
+}
+using FastEndpoints;
+using Focuswave.Common.Domain;
+using Focuswave.Common.DomainEvents;
+using Focuswave.FocusSessionService.Domain.FocusCycles;
+using LanguageExt.UnsafeValueAccess;
+using Microsoft.AspNetCore.Http.HttpResults;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSessions.Start;
+
+public class StartSessionEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
+    : Endpoint<StartSessionRequest, Results<NoContent, BadRequest<string>, ProblemHttpResult>>
+{
+    private readonly IFocusCycleRepository repo = repo;
+    private readonly IEventDispatcher ed = ed;
+
+    public override void Configure()
+    {
+        Post("/start-session");
+        AllowAnonymous(); // или настрой авторизацию
+        Group<FocusCycleGroup>();
+    }
+
+    public override async Task<
+        Results<NoContent, BadRequest<string>, ProblemHttpResult>
+    > ExecuteAsync(StartSessionRequest req, CancellationToken ct)
+    {
+        var maybeCycle = await repo.GetByUserIdAsync(req.UserId);
+
+        Fin<FocusCycleAggregate> res = maybeCycle
+            .Match(
+                Some: cycle => FinSucc(cycle),
+                None: () => FocusCycleAggregate.Create(req.UserId, req.StartTime, ed)
+            )
+            .Bind(cycle => cycle.StartSession(req.UserId, req.StartTime, ed).Map(_ => cycle));
+
+        if (res.IsSucc)
+            await repo.SaveAsync(res.ThrowIfFail());
+
+        await ed.DispatchAsync(ct);
+
+        return res.Match<Results<NoContent, BadRequest<string>, ProblemHttpResult>>(
+            Succ: _ => TypedResults.NoContent(),
+            Fail: err =>
+            {
+                if (err is DomainError de)
+                    return TypedResults.BadRequest(de.Message);
+                return TypedResults.Problem(err.Message);
+            }
+        );
+    }
+}
+namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSessions.Start;
+
+public record StartSessionRequest(Guid UserId, DateTimeOffset StartTime);
+using System.Text.Json.Serialization;
+using Focuswave.FocusSessionService.Domain.FocusCycles;
+using Microsoft.AspNetCore.Http.HttpResults;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.Get;
+
+public record FocusSessionStateDto(
+    Guid FocusCycleId,
+    CycleState Status,
+    DateTimeOffset? StartedAt,
+    FocusSession? FocusSession,
+    PlannedBreak? PlannedBreak,
+    UnplannedInterruption? UnplannedInterruption
+);
+using FastEndpoints;
+using Focuswave.FocusSessionService.Domain.FocusCycles;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.Get;
+
+using ReturnType = Results<Ok<FocusSessionStateDto>, NotFound>;
+
+public record GetSessionStateRequest([FromRoute] Guid UserId);
+
+public class GetSessionStateEndpoint(IFocusCycleRepository repo)
+    : Endpoint<GetSessionStateRequest, ReturnType>
+{
+    public override void Configure()
+    {
+        Get("/session-state/{UserId}");
+        AllowAnonymous();
+        Group<FocusCycleGroup>();
+    }
+
+    [Microsoft.AspNetCore.Mvc.HttpGet("/session-state/{UserId}")]
+    public override async Task<ReturnType> ExecuteAsync(
+        [FromRoute] GetSessionStateRequest req,
+        CancellationToken ct
+    )
+    {
+        var maybeCycle = await repo.GetByUserIdAsync(req.UserId);
+
+        return maybeCycle.Match<ReturnType>(
+            Some: cycle =>
+            {
+                var dto = new FocusSessionStateDto(
+                    FocusCycleId: cycle.Id,
+                    Status: cycle.GetCycleState(),
+                    StartedAt: cycle.StartedAt.IfNoneUnsafe(null!),
+                    FocusSession: cycle.FocusSession.IfNoneUnsafe((FocusSession?)null),
+                    PlannedBreak: cycle.PlannedBreaks.IfNoneUnsafe((PlannedBreak?)null),
+                    UnplannedInterruption: cycle.UnplannedInterruptions.IfNoneUnsafe(
+                        (UnplannedInterruption?)null
+                    )
+                );
+
+                return TypedResults.Ok(dto);
+            },
+            None: () => TypedResults.NotFound()
+        );
+    }
+}
+using Focuswave.FocusSessionService.Domain.FocusCycles;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles;
+
+public interface IFocusCycleRepository
+{
+    public Task SaveAsync(FocusCycleAggregate focusCycle);
+
+    public Task<Option<FocusCycleAggregate>> GetByIdAsync(Guid id);
+
+    public Task<Option<FocusCycleAggregate>> GetByUserIdAsync(Guid userId);
+}
+using Confluent.Kafka;
+using Focuswave.Common.DomainEvents;
+using Focuswave.FocusSessionService.Application.IntegrationEvents;
+using Focuswave.FocusSessionService.Domain.FocusCycles.Events;
+using Focuswave.Integration.Events;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.PlannedBreaks.Start;
+
+// event handler
+public class PlannedBreakStartedHandler(IProducer<string, FocusCycleEvent> kafka)
+    : IEventHandler<PlannedBreakStarted>
+{
+    public async Task HandleAsync(PlannedBreakStarted e, CancellationToken ct)
+    {
+        var ev = new FocusCycleEvent
+        {
+            Base = IntegrationEventFactory.Create(e.StartedAt),
+            FocusCycleId = e.FocusCycleId.ToString(),
+            EventTime = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
+                e.StartedAt.UtcDateTime
+            ),
+            EventType = FocusCycleEvent.Types.EventType.Start,
+            PlannedBreak = new()
+            {
+                Duration = Google.Protobuf.WellKnownTypes.Duration.FromTimeSpan(e.Duration),
+            },
+        };
+
+        await kafka.ProduceAsync(
+            "focus-cycle-events",
+            new Message<string, FocusCycleEvent> { Key = e.FocusCycleId.ToString(), Value = ev },
+            ct
+        );
+    }
+}
+using FastEndpoints;
+using Focuswave.Common.DomainEvents;
+using Microsoft.AspNetCore.Http.HttpResults;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.PlannedBreaks.Start;
+
+using ReturnType = Results<NoContent, BadRequest<string>>;
+
+// endpoint
+public class StartPlannedBreakEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
+    : Endpoint<StartPlannedBreakRequest, ReturnType>
+{
+    public override void Configure()
+    {
+        Post("/start-planned-break");
+        AllowAnonymous();
+        Group<FocusCycleGroup>();
+    }
+
+    public override async Task<ReturnType> ExecuteAsync(
+        StartPlannedBreakRequest req,
+        CancellationToken ct
+    )
+    {
+        var maybe = await repo.GetByUserIdAsync(req.UserId);
+        var result = maybe
+            .ToFin("Cycle not found")
+            .Bind(c => c.StartBreak(req.UserId, req.StartedAt, req.Duration, ed).Map(_ => c));
+
+        if (result.IsSucc)
+            await repo.SaveAsync(result.ThrowIfFail());
+
+        await ed.DispatchAsync(ct);
+
+        return result.Match<ReturnType>(
+            Succ: _ => TypedResults.NoContent(),
+            Fail: e => TypedResults.BadRequest(e.Message)
+        );
+    }
+}
+using Microsoft.AspNetCore.Http.HttpResults;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.PlannedBreaks.Start;
+
+// request record
+public record StartPlannedBreakRequest(Guid UserId, DateTimeOffset StartedAt, TimeSpan Duration);
+using Confluent.Kafka;
+using Focuswave.FocusSessionService.Application.IntegrationEvents;
+using Focuswave.FocusSessionService.Domain.FocusCycles.Events;
+using Focuswave.Integration.Events;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.Start;
+
+public class FocusCycleStartedHandler(IProducer<string, FocusCycleEvent> kafkaProducer)
+    : Common.DomainEvents.IEventHandler<FocusCycleStarted>
+{
+    private readonly IProducer<string, FocusCycleEvent> producer = kafkaProducer;
+
+    public async Task HandleAsync(FocusCycleStarted e, CancellationToken ct)
+    {
+        var ev = new FocusCycleEvent
+        {
+            Base = IntegrationEventFactory.Create(e.OccurredOn),
+            FocusCycleId = e.FocusCycleId.ToString(),
+            EventTime = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
+                e.StartedAt.UtcDateTime
+            ),
+            EventType = FocusCycleEvent.Types.EventType.Start,
+            FocusCycle = new FocusCycleDetail { UserId = e.UserId.ToString() },
+        };
+
+        await producer.ProduceAsync(
+            "focus-cycle-events",
+            new Message<string, FocusCycleEvent> { Key = e.FocusCycleId.ToString(), Value = ev },
+            ct
+        );
+    }
+}
+using FastEndpoints;
+using Focuswave.Common.DomainEvents;
+using Focuswave.FocusSessionService.Domain.FocusCycles;
+using Microsoft.AspNetCore.Http.HttpResults;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.Start;
+
+// Using a type alias for the return type improves readability and simplifies the endpoint definition.
+using ReturnType = Results<NoContent, BadRequest<string>>;
+
+/// <summary>
+/// Defines the endpoint for initiating a new focus cycle.
+/// This endpoint is responsible for creating a new focus cycle aggregate and persisting it.
+/// </summary>
+/// <param name="repo">The repository for focus cycle data access.</param>
+/// <param name="ed">The event dispatcher for handling domain events.</param>
+public class StartCycleEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
+    : Endpoint<StartCycleRequest, ReturnType>
+{
+    /// <summary>
+    /// Configures the endpoint's route, permissions, and grouping.
+    /// </summary>
+    public override void Configure()
+    {
+        // Maps the endpoint to the POST "/start-cycle" route.
+        Post("/start-cycle");
+        // This endpoint does not require authentication.
+        AllowAnonymous();
+        // Groups this endpoint under the "FocusCycle" feature group for better organization.
+        Group<FocusCycleGroup>();
+    }
+
+    /// <summary>
+    /// Handles the asynchronous execution of the start cycle request.
+    /// </summary>
+    /// <param name="req">The request object containing the UserId and StartTime.</param>
+    /// <param name="ct">A cancellation token for the asynchronous operation.</param>
+    /// <returns>A result indicating success (NoContent) or failure (ProblemHttpResult).</returns>
+    public override async Task<ReturnType> ExecuteAsync(StartCycleRequest req, CancellationToken ct)
+    {
+        if (await repo.GetByUserIdAsync(req.UserId) != null)
+            return TypedResults.BadRequest("Already created");
+
+        // The aggregate creation encapsulates business logic and validation.
+        var res = FocusCycleAggregate.Create(req.UserId, req.StartTime, ed);
+
+        // Persist the new aggregate only if creation was successful.
+        if (res.IsSucc)
+            await repo.SaveAsync(res.ThrowIfFail());
+
+        // Dispatch any domain events that were raised during the aggregate's creation.
+        await ed.DispatchAsync(ct);
+
+        // Pattern match on the result to provide an appropriate HTTP response.
+        return res.Match<ReturnType>(
+            Succ: _ => TypedResults.NoContent(), // On success, return a 204 NoContent response.
+            Fail: err => TypedResults.BadRequest(err.Message) // On failure, return a problem details response with the error message.
+        );
+    }
+}
+using Microsoft.AspNetCore.Http.HttpResults;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.Start;
+
+public record StartCycleRequest(Guid UserId, DateTimeOffset StartTime);
+using FastEndpoints;
+using Focuswave.Common.DomainEvents;
+using Focuswave.Integration;
+using Google.Protobuf.WellKnownTypes;
+using Microsoft.AspNetCore.Http.HttpResults;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.Stop;
+
+using ReturnType = Results<NoContent, BadRequest<string>, NotFound>;
+
+public class StopCycleEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
+    : Endpoint<StopCycleRequest, ReturnType>
+{
+    private readonly IFocusCycleRepository repo = repo;
+    private readonly IEventDispatcher ed = ed;
+
+    public override void Configure()
+    {
+        Post("stop-cycle");
+        Group<FocusCycleGroup>();
+        AllowAnonymous(); // TODO: Remove this once we have a way to authenticate the user.
+    }
+
+    public override async Task<ReturnType> ExecuteAsync(StopCycleRequest rq, CancellationToken ct)
+    {
+        var cycle = await repo.GetByUserIdAsync(rq.UserId);
+
+        if (cycle.IsNone)
+            return TypedResults.NotFound();
+
+        var res = cycle
+            .ToFin()
+            .Bind(cycle => cycle.EndCycle(rq.UserId, rq.StopTime, ed).Map(_ => cycle));
+
+        return await res.Match<Task<ReturnType>>(
+            Succ: async cycle =>
+            {
+                await repo.SaveAsync(cycle);
+
+                await ed.DispatchAsync();
+
+                return TypedResults.NoContent();
+            },
+            Fail: err => Task.FromResult<ReturnType>(TypedResults.BadRequest(err.Message))
+        );
+    }
+}
+using Confluent.Kafka;
+using Focuswave.FocusSessionService.Application.IntegrationEvents;
+using Focuswave.FocusSessionService.Domain.FocusCycles.Events;
+using Focuswave.Integration.Events;
+using Microsoft.AspNetCore.Http.HttpResults;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.Stop;
+
+public class StopCycleEventHandler(IProducer<string, FocusCycleEvent> producer)
+    : Common.DomainEvents.IEventHandler<FocusCycleStopped>
+{
+    readonly IProducer<string, FocusCycleEvent> producer = producer;
+
+    public async Task HandleAsync(FocusCycleStopped de, CancellationToken ct)
+    {
+        var ie = new FocusCycleEvent()
+        {
+            Base = IntegrationEventFactory.Create(de.StoppedAt),
+            EventType = FocusCycleEvent.Types.EventType.End,
+            FocusCycle = new() { UserId = de.UserId.ToString() },
+            EventTime = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
+                de.StoppedAt.UtcDateTime
+            ),
+            FocusCycleId = de.FocusCycleId.ToString(),
+        };
+
+        await producer.ProduceAsync(
+            "focus-cycle-events",
+            new() { Key = de.FocusCycleId.ToString(), Value = ie },
+            ct
+        );
+    }
+}
+using Microsoft.AspNetCore.Http.HttpResults;
+
+namespace Focuswave.FocusSessionService.Application.FocusCycles.Stop;
+
+public record StopCycleRequest(Guid UserId, DateTimeOffset StopTime);
+using Focuswave.Integration;
+using Google.Protobuf.WellKnownTypes;
+
+namespace Focuswave.FocusSessionService.Application.IntegrationEvents;
+
+public static class IntegrationEventFactory
+{
+    public const string ServiceSource = "FocusSessionService";
+
+    public static IntegrationEvent Create(DateTimeOffset dt)
+    {
+        return new IntegrationEvent
+        {
+            EventId = Guid.NewGuid().ToString(),
+            CorrelationId = Guid.NewGuid().ToString(),
+            OccurredOn = Timestamp.FromDateTime(dt.UtcDateTime),
+            Source = ServiceSource,
+        };
+    }
+}

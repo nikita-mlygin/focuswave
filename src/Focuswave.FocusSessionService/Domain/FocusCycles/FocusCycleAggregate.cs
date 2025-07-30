@@ -105,6 +105,7 @@ public class FocusCycleAggregate
     ) =>
         CheckUser(userId)
             .Bind(_ => TestFailIfSessionStarted())
+            .Bind(_ => EndBreakIfStarted(sessionStartTime, ed))
             .Do(_ =>
                 this.FocusSession = new FocusSession(sessionStartTime, TimeSpan.FromMinutes(30))
             )
@@ -130,14 +131,6 @@ public class FocusCycleAggregate
             .Do(_ =>
                 this.FocusSession.Do(_ => this.FocusSession = None)
                     .Do(_ => ed.Publish(new FocusSessionEnded(this.Id, sessionEndTime)))
-            )
-            .Do(_ =>
-                this.PlannedBreaks.Do(_ => this.PlannedBreaks = null)
-                    .Do(_ => ed.Publish(new PlannedBreakEnded(this.Id, sessionEndTime)))
-            )
-            .Do(_ =>
-                this.UnplannedInterruptions.Do(_ => this.UnplannedInterruptions = null)
-                    .Do(_ => ed.Publish(new UnplannedInterruptionEnded(this.Id, sessionEndTime)))
             )
             .Do(_ => this.FocusSession = None)
             .Do(_ => ed.Publish(new FocusSessionEnded(this.Id, sessionEndTime)));
@@ -205,7 +198,15 @@ public class FocusCycleAggregate
         DateTimeOffset start,
         DateTimeOffset now,
         TimeSpan duration
-    ) => start.Subtract(now) < duration;
+    ) => (now - start).Duration() > duration;
+
+    private Fin<Unit> EndBreakIfStarted(DateTimeOffset endTime, IEventDispatcher ed)
+    {
+        this.PlannedBreaks.Do(_ => ed.Publish(new PlannedBreakEnded(this.Id, endTime)))
+            .Do(_ => this.PlannedBreaks = None);
+
+        return Unit.Default;
+    }
     #endregion
 
     #region Snapshot

@@ -5,7 +5,7 @@ using Focuswave.FocusSessionService.Domain.FocusCycles;
 using LanguageExt.UnsafeValueAccess;
 using Microsoft.AspNetCore.Http.HttpResults;
 
-namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSession.Start;
+namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSessions.Start;
 
 public class StartSessionEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
     : Endpoint<StartSessionRequest, Results<NoContent, BadRequest<string>, ProblemHttpResult>>

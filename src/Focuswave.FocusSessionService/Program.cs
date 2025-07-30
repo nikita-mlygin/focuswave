@@ -1,14 +1,10 @@
 using Confluent.Kafka;
 using FastEndpoints;
 using Focuswave.Common;
-using Focuswave.Common.DomainEvents;
 using Focuswave.Common.Infrastructure.Vault;
-using Focuswave.FocusSessionService.Application.FocusCycles.FocusSession.Start;
-using Focuswave.FocusSessionService.Domain.FocusCycles.Events;
 using Focuswave.FocusSessionService.Infrastructure;
 using Focuswave.FocusSessionService.Persistence;
 using Focuswave.Integration.Events;
-using Microsoft.AspNetCore.Mvc.TagHelpers;
 
 var builder = WebApplication.CreateBuilder(args);
 
