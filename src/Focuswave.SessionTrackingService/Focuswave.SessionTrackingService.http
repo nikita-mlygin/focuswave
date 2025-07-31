@@ -1,0 +1,6 @@
+@Focuswave.SessionTrackingService_HostAddress = http://localhost:5140
+
+GET {{Focuswave.SessionTrackingService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

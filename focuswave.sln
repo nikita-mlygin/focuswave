@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Focuswave.Common", "src\Foc
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Focuswave.FocusSessionService.Test", "test\Focuswave.FocusSessionService.Test\Focuswave.FocusSessionService.Test.csproj", "{CD928899-AF42-49BB-B3AA-6034140FBF98}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Focuswave.SessionTrackingService", "src\Focuswave.SessionTrackingService\Focuswave.SessionTrackingService.csproj", "{6C0A5383-DAFC-427A-8227-58C12A4109CC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -46,6 +48,10 @@ Global
 		{CD928899-AF42-49BB-B3AA-6034140FBF98}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CD928899-AF42-49BB-B3AA-6034140FBF98}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CD928899-AF42-49BB-B3AA-6034140FBF98}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6C0A5383-DAFC-427A-8227-58C12A4109CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C0A5383-DAFC-427A-8227-58C12A4109CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C0A5383-DAFC-427A-8227-58C12A4109CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C0A5383-DAFC-427A-8227-58C12A4109CC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{45EDE31A-401C-4CB7-97DD-444A2FCE39B8} = {EC8429BE-E21B-4C50-87C2-4506F1A3910F}
@@ -53,5 +59,6 @@ Global
 		{6EFFCFD6-C74C-4103-A007-144F97958B80} = {0941D186-3578-4F70-9668-6E11C424E854}
 		{AA6A5D85-6936-4D41-86E1-4E0B63E89AD4} = {0941D186-3578-4F70-9668-6E11C424E854}
 		{CD928899-AF42-49BB-B3AA-6034140FBF98} = {EC8429BE-E21B-4C50-87C2-4506F1A3910F}
+		{6C0A5383-DAFC-427A-8227-58C12A4109CC} = {0941D186-3578-4F70-9668-6E11C424E854}
 	EndGlobalSection
 EndGlobal
