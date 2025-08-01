@@ -33,7 +33,10 @@ public class GetSessionStateEndpoint(IFocusCycleRepository repo)
                 var dto = new FocusSessionStateDto(
                     FocusCycleId: cycle.Id,
                     Status: cycle.GetCycleState(),
-                    StartedAt: cycle.StartedAt.IfNoneUnsafe(null!),
+                    StartedAt: cycle.StartedAt.MatchUnsafe<DateTimeOffset?>(
+                        some => some,
+                        () => null
+                    ),
                     FocusSession: cycle.FocusSession.IfNoneUnsafe((FocusSession?)null),
                     PlannedBreak: cycle.PlannedBreaks.IfNoneUnsafe((PlannedBreak?)null),
                     UnplannedInterruption: cycle.UnplannedInterruptions.IfNoneUnsafe(

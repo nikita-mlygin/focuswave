@@ -35,7 +35,7 @@ public class StopCycleEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
         return await res.Match<Task<ReturnType>>(
             Succ: async cycle =>
             {
-                await repo.SaveAsync(cycle);
+                await repo.Remove(cycle);
 
                 await ed.DispatchAsync();
 
