@@ -15,35 +15,20 @@ public class FocusSessionStartedHandler(IProducer<string, FocusCycleEvent> kafka
     private readonly IProducer<string, FocusCycleEvent> producer = kafkaProducer;
     private readonly string topicName = "focus-cycle-events"; // TODO
 
-    public async Task HandleAsync(FocusSessionStarted domainEvent, CancellationToken ct)
+    public async Task HandleAsync(FocusSessionStarted de, CancellationToken ct)
     {
         Console.WriteLine("Produce event");
 
-        var integrationEvent = new FocusCycleEvent
-        {
-            Base = new IntegrationEvent
-            {
-                EventId = Guid.NewGuid().ToString(),
-                CorrelationId = Guid.NewGuid().ToString(),
-                OccurredOn = Timestamp.FromDateTime(domainEvent.OccurredOn.UtcDateTime),
-                Source = "FocusSessionService",
-            },
-            FocusCycleId = domainEvent.FocusCycleId.ToString(),
-            EventTime = Timestamp.FromDateTime(domainEvent.StartedAt.UtcDateTime),
-            EventType = FocusCycleEvent.Types.EventType.Start,
-            FocusSession = new FocusSessionDetail
-            {
-                Duration = Duration.FromTimeSpan(domainEvent.Duration),
-            },
-        };
+        var ie = FocusCycleEventFactory.CreateStartEventWithDuration(
+            de.FocusCycleId,
+            de.OccurredOn,
+            de.Duration,
+            FocusCycleEventFactory.GenerateDetail<FocusSessionDetail>(de.Index)
+        );
 
         await producer.ProduceAsync(
             topicName,
-            new Message<string, FocusCycleEvent>
-            {
-                Key = domainEvent.FocusCycleId.ToString(),
-                Value = integrationEvent,
-            },
+            new Message<string, FocusCycleEvent> { Key = de.FocusCycleId.ToString(), Value = ie },
             ct
         );
     }

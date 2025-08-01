@@ -2,7 +2,8 @@ using Focuswave.Common.DomainEvents;
 
 namespace Focuswave.FocusSessionService.Domain.FocusCycles.Events;
 
-public record FocusSessionEnded(Guid FocusCycleId, int Index, DateTimeOffset EndedAt) : IDomainEvent
+public record FocusSessionTooShortEvent(Guid FocusCycleId, int Index, DateTimeOffset EndedAt)
+    : IDomainEvent
 {
     public DateTimeOffset OccurredOn => EndedAt;
 }

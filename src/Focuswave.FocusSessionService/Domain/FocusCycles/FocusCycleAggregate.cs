@@ -1,28 +1,55 @@
-using System.Runtime.CompilerServices;
-using Focuswave;
 using Focuswave.Common.DomainEvents;
 using Focuswave.FocusSessionService.Domain.FocusCycles.Events;
-using LanguageExt.SomeHelp;
 using LanguageExt.UnsafeValueAccess;
-using static LanguageExt.Prelude;
 
 namespace Focuswave.FocusSessionService.Domain.FocusCycles;
 
 public class FocusCycleAggregate
 {
     #region Properties
+    /// <summary>
+    /// Represents the unique identifier of the focus cycle.
+    /// </summary>
     public Guid Id { get; init; }
+
+    /// <summary>
+    /// Represents the unique identifier of the user associated with the focus cycle.
+    /// </summary>
     public Guid UserId { get; init; }
 
+    /// <summary>
+    /// Represents the start time of the focus cycle, if it has started.
+    /// </summary>
     public Option<DateTimeOffset> StartedAt { get; private set; }
 
+    /// <summary>
+    /// Represents the current focus session, if one is active.
+    /// </summary>
     public Option<FocusSession> FocusSession { get; private set; }
+
+    /// <summary>
+    /// Represents the current planned break, if one is active.
+    /// </summary>
     public Option<PlannedBreak> PlannedBreaks { get; private set; }
 
+    /// <summary>
+    /// Represents the current unplanned interruption, if one is active.
+    /// </summary>
     public Option<UnplannedInterruption> UnplannedInterruptions { get; private set; }
+
+    /// <summary>
+    /// Represents the offset for the index of sessions/breaks within the focus cycle.
+    /// </summary>
+    public int IndexOffset { get; private set; }
     #endregion
 
     #region Construct
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FocusCycleAggregate"/> class with a new unique identifier and start time.
+    /// </summary>
+    /// <param name="id">The unique identifier for the focus cycle.</param>
+    /// <param name="userId">The unique identifier of the user.</param>
+    /// <param name="startedAt">The time at which the focus cycle started.</param>
     private FocusCycleAggregate(Guid id, Guid userId, DateTimeOffset startedAt)
     {
         Id = id;
@@ -31,15 +58,27 @@ public class FocusCycleAggregate
         FocusSession = Option<FocusSession>.None;
         PlannedBreaks = Option<PlannedBreak>.None;
         UnplannedInterruptions = Option<UnplannedInterruption>.None;
+        IndexOffset = 1;
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FocusCycleAggregate"/> class from existing data, typically for restoring state.
+    /// </summary>
+    /// <param name="id">The unique identifier for the focus cycle.</param>
+    /// <param name="userId">The unique identifier of the user.</param>
+    /// <param name="startedAt">The optional time at which the focus cycle started.</param>
+    /// <param name="focusSession">The optional current focus session.</param>
+    /// <param name="plannedBreak">The optional current planned break.</param>
+    /// <param name="unplannedInterruption">The optional current unplanned interruption.</param>
+    /// <param name="indexOffset">The offset for the index of sessions/breaks within the focus cycle.</param>
     private FocusCycleAggregate(
         Guid id,
         Guid userId,
         DateTimeOffset? startedAt,
         FocusSession? focusSession,
         PlannedBreak? plannedBreak,
-        UnplannedInterruption? unplannedInterruption
+        UnplannedInterruption? unplannedInterruption,
+        int indexOffset
     )
     {
         Id = id;
@@ -48,8 +87,16 @@ public class FocusCycleAggregate
         FocusSession = focusSession is not null ? focusSession : None;
         PlannedBreaks = plannedBreak is not null ? plannedBreak : None;
         UnplannedInterruptions = unplannedInterruption is not null ? unplannedInterruption : None;
+        IndexOffset = indexOffset;
     }
 
+    /// <summary>
+    /// Creates a new <see cref="FocusCycleAggregate"/> instance.
+    /// </summary>
+    /// <param name="userId">The unique identifier of the user.</param>
+    /// <param name="startTime">The time at which the focus cycle starts.</param>
+    /// <param name="ed">The event dispatcher to publish domain events.</param>
+    /// <returns>A <see cref="Fin{A}"/> indicating success or failure, containing the new <see cref="FocusCycleAggregate"/> instance.</returns>
     public static Fin<FocusCycleAggregate> Create(
         Guid userId,
         DateTimeOffset startTime,
@@ -83,13 +130,13 @@ public class FocusCycleAggregate
         }
 
         this.FocusSession.Do(_ => this.FocusSession = None)
-            .Do(_ => ed.Publish(new FocusSessionEnded(this.Id, endTime)));
+            .Do(_ => ed.Publish(new FocusSessionEnded(this.Id, IndexOffset, endTime)));
 
         this.PlannedBreaks.Do(_ => this.PlannedBreaks = None)
-            .Do(_ => ed.Publish(new PlannedBreakEnded(this.Id, endTime)));
+            .Do(_ => ed.Publish(new PlannedBreakEnded(this.Id, IndexOffset, endTime)));
 
         this.UnplannedInterruptions.Do(_ => this.UnplannedInterruptions = None)
-            .Do(_ => ed.Publish(new UnplannedInterruptionEnded(this.Id, endTime)));
+            .Do(_ => ed.Publish(new UnplannedInterruptionEnded(this.Id, IndexOffset, endTime)));
 
         this.StartedAt = None;
 
@@ -98,42 +145,34 @@ public class FocusCycleAggregate
         return Unit.Default;
     }
 
-    public Fin<Unit> StartSession(
+    public Fin<Unit> StartSession( // TODO add end cycle if break to long
         Guid userId,
         DateTimeOffset sessionStartTime,
         IEventDispatcher ed
     ) =>
         CheckUser(userId)
             .Bind(_ => TestFailIfSessionStarted())
-            .Bind(_ => EndBreakIfStarted(sessionStartTime, ed))
+            .Map(__ =>
+            {
+                _ = PlannedBreaks.Map(pb => EndBreak(pb, sessionStartTime, ed));
+                return Unit.Default;
+            })
             .Do(_ =>
                 this.FocusSession = new FocusSession(sessionStartTime, TimeSpan.FromMinutes(30))
             )
             .Do(_ =>
                 ed.Publish(
-                    new FocusSessionStarted(this.Id, sessionStartTime, TimeSpan.FromMinutes(30))
+                    new FocusSessionStarted(
+                        this.Id,
+                        IndexOffset,
+                        sessionStartTime,
+                        TimeSpan.FromMinutes(30)
+                    )
                 )
             ); // TODO доделать дополнительный параметр
 
     public Fin<Unit> EndSession(Guid userId, DateTimeOffset sessionEndTime, IEventDispatcher ed) =>
-        CheckUser(userId)
-            .Bind(_ =>
-                TestFailIfSessionNotStarted(
-                    session =>
-                        TestFailSessionIfNotDurationEnded(
-                            session.StartedAt,
-                            sessionEndTime,
-                            session.Duration
-                        ),
-                    FocusCycleErrors.SessionCantBeLessThenDuration
-                )
-            )
-            .Do(_ =>
-                this.FocusSession.Do(_ => this.FocusSession = None)
-                    .Do(_ => ed.Publish(new FocusSessionEnded(this.Id, sessionEndTime)))
-            )
-            .Do(_ => this.FocusSession = None)
-            .Do(_ => ed.Publish(new FocusSessionEnded(this.Id, sessionEndTime)));
+        CheckUser(userId).Bind(_ => EndSession(ed, sessionEndTime));
 
     public Fin<Unit> StartBreak(
         Guid userId,
@@ -145,18 +184,23 @@ public class FocusCycleAggregate
             .Map(_ => FocusSession.ToEither(Unit.Default))
             .Bind(_ =>
                 _.Match(
-                    Right: __ =>
-                        Fin<Unit>.Succ(
-                            EndSession(ed, new FocusSessionEnded(this.Id, breakStartTime))
-                        ),
+                    Right: fs => EndSession(fs, ed, breakStartTime),
                     Left: __ =>
                         this.PlannedBreaks.IsSome
                             ? Fin<Unit>.Fail(FocusCycleErrors.AlreadyBreakStarted)
                             : Fin<Unit>.Succ(Unit.Default)
                 )
             )
-            .Do(_ => this.PlannedBreaks = Some(new PlannedBreak(breakStartTime, duration)))
-            .Do(_ => ed.Publish(new PlannedBreakStarted(this.Id, breakStartTime, duration)));
+            .Do(_ => this.PlannedBreaks = new PlannedBreak(breakStartTime, duration))
+            .Do(_ =>
+                ed.Publish(new PlannedBreakStarted(this.Id, IndexOffset, breakStartTime, duration))
+            );
+
+    public Fin<Unit> AcknowledgeEndMismatch(
+        Guid userId,
+        DateTimeOffset endTime,
+        IEventDispatcher ed
+    ) => CheckUser(userId).Bind(_ => AcknowledgeEndMismatch(endTime, ed));
 
     #endregion
 
@@ -174,22 +218,51 @@ public class FocusCycleAggregate
             Fin<Unit>.Succ(Unit.Default)
         );
 
-    private Fin<Unit> TestFailIfSessionNotStarted(
-        Func<FocusSession, bool>? testSession = null,
-        Error? error = null
-    ) =>
-        FocusSession.Match(
-            _ =>
-                testSession is not null && error is not null && testSession(_)
-                    ? Fin<Unit>.Succ(Unit.Default)
-                    : Fin<Unit>.Fail(error),
-            Fin<Unit>.Fail(FocusCycleErrors.SessionAlreadyStopped)
-        );
-
-    private Unit EndSession(IEventDispatcher ed, FocusSessionEnded e)
+    private Fin<Unit> AcknowledgeEndMismatch(DateTimeOffset endTime, IEventDispatcher eq)
     {
+        return this
+            .FocusSession.ToFin(FocusCycleErrors.SessionAlreadyStopped)
+            .Bind(session => AcknowledgeEndMismatch(session, eq, endTime));
+    }
+
+    private Fin<Unit> AcknowledgeEndMismatch(
+        FocusSession session,
+        IEventDispatcher ed,
+        DateTimeOffset endTime
+    )
+    {
+        if (TestFailSessionIfNotDurationEnded(session.StartedAt, endTime, session.Duration))
+            return FocusCycleErrors.SessionDurationExceededPlanned;
+
         this.FocusSession = None;
-        ed.Publish(e);
+        ed.Publish(new FocusSessionTooShortEvent(this.Id, IndexOffset, endTime));
+
+        IndexOffset++;
+
+        return Unit.Default;
+    }
+
+    // End session (set None) and increment indexOffset if session exists end duration is ok
+    private Fin<Unit> EndSession(IEventDispatcher ed, DateTimeOffset endedTime)
+    {
+        return this
+            .FocusSession.ToFin(FocusCycleErrors.SessionAlreadyStopped)
+            .Bind(session => EndSession(session, ed, endedTime));
+    }
+
+    // End session (set None) and increment indexOffset if duration is ok
+    private Fin<Unit> EndSession(
+        FocusSession session,
+        IEventDispatcher ed,
+        DateTimeOffset endedTime
+    )
+    {
+        if (!TestFailSessionIfNotDurationEnded(session.StartedAt, endedTime, session.Duration))
+            return Fin<Unit>.Fail(FocusCycleErrors.SessionCantBeLessThenDuration);
+
+        this.FocusSession = None;
+        ed.Publish(new FocusSessionEnded(this.Id, this.IndexOffset, endedTime));
+        this.IndexOffset++;
 
         return Unit.Default;
     }
@@ -198,13 +271,24 @@ public class FocusCycleAggregate
         DateTimeOffset start,
         DateTimeOffset now,
         TimeSpan duration
-    ) => (now - start).Duration() > duration;
+    ) => now - start > duration;
 
-    private Fin<Unit> EndBreakIfStarted(DateTimeOffset endTime, IEventDispatcher ed)
+    private Fin<Unit> EndBreak(DateTimeOffset endTime, IEventDispatcher ed)
     {
-        this.PlannedBreaks.Do(_ => ed.Publish(new PlannedBreakEnded(this.Id, endTime)))
-            .Do(_ => this.PlannedBreaks = None);
+        return this
+            .PlannedBreaks.ToFin(FocusCycleErrors.BreakAlreadyStopped)
+            .Bind(pb => EndBreak(pb, endTime, ed));
+    }
 
+    private Fin<Unit> EndBreak(
+        PlannedBreak plannedBreak,
+        DateTimeOffset endTime,
+        IEventDispatcher ed
+    )
+    {
+        this.PlannedBreaks = None;
+        ed.Publish(new PlannedBreakEnded(this.Id, IndexOffset, endTime));
+        IndexOffset++;
         return Unit.Default;
     }
     #endregion
@@ -216,7 +300,8 @@ public class FocusCycleAggregate
         DateTimeOffset? StartedAt,
         FocusSession? FocusSession,
         PlannedBreak? PlannedBreak,
-        UnplannedInterruption? UnplannedInterruption
+        UnplannedInterruption? UnplannedInterruption,
+        int IndexOffset
     );
 
     public static FocusCycleAggregate Restore(Snapshot snapshot)
@@ -227,7 +312,8 @@ public class FocusCycleAggregate
             snapshot.StartedAt,
             snapshot.FocusSession,
             snapshot.PlannedBreak,
-            snapshot.UnplannedInterruption
+            snapshot.UnplannedInterruption,
+            snapshot.IndexOffset
         );
     }
 
@@ -239,7 +325,8 @@ public class FocusCycleAggregate
             this.StartedAt.MatchUnsafe<DateTimeOffset?>(x => x, () => null),
             this.FocusSession.MatchUnsafe<FocusSession?>(x => x, () => null),
             this.PlannedBreaks.MatchUnsafe<PlannedBreak?>(x => x, () => null),
-            this.UnplannedInterruptions.MatchUnsafe<UnplannedInterruption?>(x => x, () => null)
+            this.UnplannedInterruptions.MatchUnsafe<UnplannedInterruption?>(x => x, () => null),
+            this.IndexOffset
         );
     }
     #endregion

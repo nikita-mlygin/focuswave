@@ -13,16 +13,11 @@ public class StopCycleEventHandler(IProducer<string, FocusCycleEvent> producer)
 
     public async Task HandleAsync(FocusCycleStopped de, CancellationToken ct)
     {
-        var ie = new FocusCycleEvent()
-        {
-            Base = IntegrationEventFactory.Create(de.StoppedAt),
-            EventType = FocusCycleEvent.Types.EventType.End,
-            FocusCycle = new() { UserId = de.UserId.ToString() },
-            EventTime = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
-                de.StoppedAt.UtcDateTime
-            ),
-            FocusCycleId = de.FocusCycleId.ToString(),
-        };
+        var ie = FocusCycleEventFactory.CreateEndEvent(
+            de.FocusCycleId,
+            de.OccurredOn,
+            FocusCycleEventFactory.GenerateDetail(de.UserId)
+        );
 
         await producer.ProduceAsync(
             "focus-cycle-events",

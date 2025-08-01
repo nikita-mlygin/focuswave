@@ -34,6 +34,15 @@ internal class FocusCycleRepository : IFocusCycleRepository
         return doc == null ? None : FocusCycleAggregate.Restore(doc);
     }
 
+    public async Task Remove(FocusCycleAggregate focusCycle)
+    {
+        var filter = Builders<FocusCycleAggregate.Snapshot>.Filter.Eq(
+            x => x.Userid,
+            focusCycle.UserId
+        );
+        await collection.DeleteOneAsync(filter);
+    }
+
     public async Task SaveAsync(FocusCycleAggregate focusCycle)
     {
         var snapshot = focusCycle.To();

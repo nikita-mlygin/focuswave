@@ -9,4 +9,6 @@ public interface IFocusCycleRepository
     public Task<Option<FocusCycleAggregate>> GetByIdAsync(Guid id);
 
     public Task<Option<FocusCycleAggregate>> GetByUserIdAsync(Guid userId);
+
+    public Task Remove(FocusCycleAggregate focusCycle);
 }
