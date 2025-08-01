@@ -482,3 +482,14 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+infrastructure/vault/.vault-focus-session-role-secret
+.gitignore
+infrastructure/vault/.vault-keys
+infrastructure/vault/certs
+infrastructure/vault/file
+infrastructure/vault/logs
+infrastructure/sqlserver
+
+infrastructure/vault/provision-auth-service.sh
+infrastructure/vault/provision-focus-session-service.sh
+infrastructure/vault/provision-session-tracking-service.sh
