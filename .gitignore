@@ -489,3 +489,7 @@ infrastructure/vault/certs
 infrastructure/vault/file
 infrastructure/vault/logs
 infrastructure/sqlserver
+
+infrastructure/vault/provision-auth-service.sh
+infrastructure/vault/provision-focus-session-service.sh
+infrastructure/vault/provision-session-tracking-service.sh
