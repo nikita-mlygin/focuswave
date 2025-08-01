@@ -10,25 +10,18 @@ namespace Focuswave.FocusSessionService.Application.FocusCycles.PlannedBreaks.St
 public class PlannedBreakStartedHandler(IProducer<string, FocusCycleEvent> kafka)
     : IEventHandler<PlannedBreakStarted>
 {
-    public async Task HandleAsync(PlannedBreakStarted e, CancellationToken ct)
+    public async Task HandleAsync(PlannedBreakStarted de, CancellationToken ct)
     {
-        var ev = new FocusCycleEvent
-        {
-            Base = IntegrationEventFactory.Create(e.StartedAt),
-            FocusCycleId = e.FocusCycleId.ToString(),
-            EventTime = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
-                e.StartedAt.UtcDateTime
-            ),
-            EventType = FocusCycleEvent.Types.EventType.Start,
-            PlannedBreak = new()
-            {
-                Duration = Google.Protobuf.WellKnownTypes.Duration.FromTimeSpan(e.Duration),
-            },
-        };
+        var ie = FocusCycleEventFactory.CreateStartEventWithDuration(
+            de.FocusCycleId,
+            de.OccurredOn,
+            de.Duration,
+            FocusCycleEventFactory.GenerateDetail<PlannedBreakDetail>(de.Index)
+        );
 
         await kafka.ProduceAsync(
             "focus-cycle-events",
-            new Message<string, FocusCycleEvent> { Key = e.FocusCycleId.ToString(), Value = ev },
+            new Message<string, FocusCycleEvent> { Key = de.FocusCycleId.ToString(), Value = ie },
             ct
         );
     }

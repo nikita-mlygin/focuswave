@@ -2,26 +2,29 @@ using FastEndpoints;
 using Focuswave.Common.DomainEvents;
 using Microsoft.AspNetCore.Http.HttpResults;
 
-namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSessions.End;
+namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSessions.ForceEnd;
 
 using ReturnType = Results<NoContent, BadRequest<string>>;
 
-public class EndSessionEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
-    : Endpoint<EndSessionRequest, ReturnType>
+public class AcknowledgeEndMismatchEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
+    : Endpoint<AcknowledgeEndMismatchRequest, ReturnType>
 {
     public override void Configure()
     {
-        Post("/end-session");
+        Post("/acknowledge-end-mismatch");
         AllowAnonymous();
         Group<FocusCycleGroup>();
     }
 
-    public override async Task<ReturnType> ExecuteAsync(EndSessionRequest req, CancellationToken ct)
+    public override async Task<ReturnType> ExecuteAsync(
+        AcknowledgeEndMismatchRequest req,
+        CancellationToken ct
+    )
     {
         var maybe = await repo.GetByUserIdAsync(req.UserId);
         var result = maybe
-            .ToFin("cycle not found") // TODO 404
-            .Bind(c => c.EndSession(req.UserId, req.EndTime, ed).Map(_ => c));
+            .ToFin("cycle not found")
+            .Bind(c => c.AcknowledgeEndMismatch(req.UserId, req.EndTime, ed).Map(_ => c));
 
         if (result.IsSucc)
             await repo.SaveAsync(result.ThrowIfFail());

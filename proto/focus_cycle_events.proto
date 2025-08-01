@@ -8,35 +8,49 @@ import "integration_event_base.proto";
 
 message FocusCycleEvent {
   IntegrationEvent base = 1;
-
   string focusCycleId = 2;
+  google.protobuf.Timestamp eventTime = 3;
 
-  google.protobuf.Timestamp eventTime = 3; // время старта или стопа
-
-  enum EventType {
-    START = 0;
-    END = 1;
+  oneof event {
+    StartWithDuration startWithDuration = 4;
+    StartWithoutDuration startWithoutDuration = 5;
+    EndEvent ended = 6;
   }
-  EventType eventType = 4;
 
   oneof detail {
-    FocusSessionDetail focusSession = 5;
-    PlannedBreakDetail plannedBreak = 6;
-    UnplannedInterruptionDetail unplannedInterruption = 7;
-    FocusCycleDetail focusCycle = 8;
+    FocusSessionDetail focusSession = 7;
+    PlannedBreakDetail plannedBreak = 8;
+    UnplannedInterruptionDetail unplannedInterruption = 9;
+    FocusCycleDetail focusCycle = 10;
+    FocusSessionTooShortDetail focusSessionTooShort = 11;
   }
 }
 
+message StartWithDuration {
+  google.protobuf.Duration planned_duration = 1;
+}
+
+message StartWithoutDuration {
+}
+
+message EndEvent {
+}
+
+// detail messages — можно расширять
 message FocusSessionDetail {
-  google.protobuf.Duration duration = 1;
+  int32 segment_index = 1;
 }
 
 message PlannedBreakDetail {
-  google.protobuf.Duration duration = 1;
+  int32 segment_index = 1;
 }
 
 message UnplannedInterruptionDetail {
-  // можно добавить поля, если нужны
+  int32 segment_index = 1;
+}
+
+message FocusSessionTooShortDetail {
+  int32 segment_index = 1;
 }
 
 message FocusCycleDetail {

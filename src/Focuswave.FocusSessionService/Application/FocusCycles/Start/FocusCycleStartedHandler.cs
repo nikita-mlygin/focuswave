@@ -10,22 +10,17 @@ public class FocusCycleStartedHandler(IProducer<string, FocusCycleEvent> kafkaPr
 {
     private readonly IProducer<string, FocusCycleEvent> producer = kafkaProducer;
 
-    public async Task HandleAsync(FocusCycleStarted e, CancellationToken ct)
+    public async Task HandleAsync(FocusCycleStarted de, CancellationToken ct)
     {
-        var ev = new FocusCycleEvent
-        {
-            Base = IntegrationEventFactory.Create(e.OccurredOn),
-            FocusCycleId = e.FocusCycleId.ToString(),
-            EventTime = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
-                e.StartedAt.UtcDateTime
-            ),
-            EventType = FocusCycleEvent.Types.EventType.Start,
-            FocusCycle = new FocusCycleDetail { UserId = e.UserId.ToString() },
-        };
+        var ev = FocusCycleEventFactory.CreateStartEventWithoutDuration(
+            de.FocusCycleId,
+            de.OccurredOn,
+            FocusCycleEventFactory.GenerateDetail(de.UserId)
+        );
 
         await producer.ProduceAsync(
             "focus-cycle-events",
-            new Message<string, FocusCycleEvent> { Key = e.FocusCycleId.ToString(), Value = ev },
+            new Message<string, FocusCycleEvent> { Key = de.FocusCycleId.ToString(), Value = ev },
             ct
         );
     }

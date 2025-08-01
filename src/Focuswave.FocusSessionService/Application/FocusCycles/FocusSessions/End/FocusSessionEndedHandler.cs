@@ -11,15 +11,11 @@ public class FocusSessionEndedHandler(IProducer<string, FocusCycleEvent> kafka)
 {
     public async Task HandleAsync(FocusSessionEnded e, CancellationToken ct)
     {
-        var ev = new FocusCycleEvent
-        {
-            Base = IntegrationEventFactory.Create(e.EndedAt),
-            FocusCycleId = e.FocusCycleId.ToString(),
-            EventTime = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(
-                e.EndedAt.UtcDateTime
-            ),
-            EventType = FocusCycleEvent.Types.EventType.End,
-        };
+        var ev = FocusCycleEventFactory.CreateEndEvent(
+            e.FocusCycleId,
+            e.OccurredOn,
+            FocusCycleEventFactory.GenerateDetail<FocusSessionDetail>(e.Index)
+        );
 
         await kafka.ProduceAsync(
             "focus-cycle-events",

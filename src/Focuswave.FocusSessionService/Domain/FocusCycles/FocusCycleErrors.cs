@@ -14,4 +14,9 @@ public static class FocusCycleErrors
     );
 
     public static readonly DomainError UserIdCannotBeEmpty = new(6, "User id cannot be empty");
+    public static readonly DomainError SessionDurationExceededPlanned = new(
+        7,
+        "Actual session duration exceeds the planned duration"
+    );
+    public static readonly DomainError BreakAlreadyStopped = new(8, "Break already stopped");
 }
