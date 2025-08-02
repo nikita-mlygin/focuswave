@@ -4,6 +4,7 @@ public enum FocusCycleSegmentType
 {
     None,
     FocusSession,
+    EarlyEndedFocusSession,
     PlannedBreak,
     Interruption,
 }

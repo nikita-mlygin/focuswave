@@ -1,3 +1,4 @@
+using Focuswave.SessionTrackingService.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -12,7 +13,10 @@ public class FocusCycleConfiguration : IEntityTypeConfiguration<FocusCycle>
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).ValueGeneratedNever();
 
+        builder.Property(x => x.UserId).IsRequired();
         builder.Property(x => x.StartedAt).IsRequired();
         builder.Property(x => x.EndedAt).IsRequired(false);
+
+        builder.HasIndex(x => x.UserId).IsUnique(false);
     }
 }

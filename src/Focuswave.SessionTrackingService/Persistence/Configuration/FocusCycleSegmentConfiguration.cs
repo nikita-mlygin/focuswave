@@ -1,3 +1,4 @@
+using Focuswave.SessionTrackingService.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -14,22 +15,21 @@ public class FocusCycleSegmentConfiguration : IEntityTypeConfiguration<FocusCycl
 
         builder.Property(x => x.CycleId).IsRequired();
         builder
-            .HasOne<FocusCycle>()
+            .HasOne(x => x.Cycle)
             .WithMany()
             .HasForeignKey(x => x.CycleId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Property(x => x.Index).IsRequired();
 
         builder.Property(x => x.StartedAt).IsRequired();
         builder.Property(x => x.EndedAt).IsRequired(false);
 
         builder.Property(x => x.Type).IsRequired();
 
-        builder.Property(x => x.FocusSessionId).IsRequired(false);
-
         builder.Property(x => x.PlannedDuration).IsRequired(false);
-        builder.Property(x => x.ActualDuration).IsRequired(false);
 
+        builder.HasIndex(x => new { x.CycleId, x.Index }).IsUnique();
         builder.HasIndex(x => new { x.CycleId, x.StartedAt });
-        builder.HasIndex(x => x.FocusSessionId);
     }
 }

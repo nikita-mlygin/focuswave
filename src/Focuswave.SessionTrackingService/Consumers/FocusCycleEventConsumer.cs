@@ -25,6 +25,7 @@ public class FocusCycleEventConsumer : BackgroundService
             BootstrapServers = configuration["Kafka:BootstrapServers"],
             GroupId = "session-tracking-service",
             AutoOffsetReset = AutoOffsetReset.Earliest,
+            EnableAutoCommit = false,
         };
 
         _consumer = new ConsumerBuilder<string, byte[]>(config).Build();
@@ -41,17 +42,27 @@ public class FocusCycleEventConsumer : BackgroundService
             {
                 while (!stoppingToken.IsCancellationRequested)
                 {
-                    var cr = _consumer.Consume(stoppingToken);
-                    using var scope = _scopeFactory.CreateScope();
-                    var handler =
-                        scope.ServiceProvider.GetRequiredService<FocusCycleEventHandler>();
-                    handler
-                        .HandleAsync(
-                            FocusCycleEvent.Parser.ParseFrom(cr.Message.Value),
-                            stoppingToken
-                        )
-                        .GetAwaiter()
-                        .GetResult(); // sync context здесь не важен
+                    try
+                    {
+                        var cr = _consumer.Consume(stoppingToken);
+                        using var scope = _scopeFactory.CreateScope();
+                        var handler =
+                            scope.ServiceProvider.GetRequiredService<FocusCycleEventHandler>();
+
+                        handler
+                            .HandleAsync(
+                                FocusCycleEvent.Parser.ParseFrom(cr.Message.Value),
+                                stoppingToken
+                            )
+                            .GetAwaiter()
+                            .GetResult(); // sync context здесь не важен
+
+                        _consumer.Commit(cr);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error handling Kafka event");
+                    }
                 }
             }
             catch (Exception ex)

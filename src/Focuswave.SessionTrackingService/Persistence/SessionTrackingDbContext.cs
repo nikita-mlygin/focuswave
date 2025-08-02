@@ -7,8 +7,8 @@ namespace Focuswave.SessionTrackingService.Persistence;
 
 public class SessionTrackingDbContext(DbContextOptions options) : DbContext(options)
 {
-    public DbSet<FocusCycle> Sessions { get; set; }
-    public DbSet<FocusCycleSegment> SessionEvents { get; set; }
+    public DbSet<FocusCycle> FocusCycles { get; set; }
+    public DbSet<FocusCycleSegment> FocusCycleSegments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

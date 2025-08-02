@@ -33,7 +33,12 @@ namespace Focuswave.SessionTrackingService.Migrations
                     b.Property<DateTimeOffset>("StartedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("FocusCycles", (string)null);
                 });
@@ -46,14 +51,11 @@ namespace Focuswave.SessionTrackingService.Migrations
                     b.Property<Guid>("CycleId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("CycleId1")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<DateTimeOffset?>("EndedAt")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<Guid?>("FocusSessionId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<int>("Index")
+                        .HasColumnType("int");
 
                     b.Property<TimeSpan?>("PlannedDuration")
                         .HasColumnType("time");
@@ -66,9 +68,8 @@ namespace Focuswave.SessionTrackingService.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CycleId1");
-
-                    b.HasIndex("FocusSessionId");
+                    b.HasIndex("CycleId", "Index")
+                        .IsUnique();
 
                     b.HasIndex("CycleId", "StartedAt");
 
@@ -77,15 +78,9 @@ namespace Focuswave.SessionTrackingService.Migrations
 
             modelBuilder.Entity("Focuswave.SessionTrackingService.Models.FocusCycleSegment", b =>
                 {
-                    b.HasOne("Focuswave.SessionTrackingService.Models.FocusCycle", null)
-                        .WithMany()
-                        .HasForeignKey("CycleId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
                     b.HasOne("Focuswave.SessionTrackingService.Models.FocusCycle", "Cycle")
                         .WithMany()
-                        .HasForeignKey("CycleId1")
+                        .HasForeignKey("CycleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

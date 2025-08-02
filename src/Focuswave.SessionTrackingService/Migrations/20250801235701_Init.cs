@@ -16,6 +16,7 @@ namespace Focuswave.SessionTrackingService.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     StartedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
                     EndedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
                 },
@@ -30,11 +31,10 @@ namespace Focuswave.SessionTrackingService.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     CycleId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    CycleId1 = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Index = table.Column<int>(type: "int", nullable: false),
                     StartedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
                     EndedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
                     Type = table.Column<int>(type: "int", nullable: false),
-                    FocusSessionId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     PlannedDuration = table.Column<TimeSpan>(type: "time", nullable: true)
                 },
                 constraints: table =>
@@ -44,29 +44,25 @@ namespace Focuswave.SessionTrackingService.Migrations
                         name: "FK_FocusCycleSegments_FocusCycles_CycleId",
                         column: x => x.CycleId,
                         principalTable: "FocusCycles",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_FocusCycleSegments_FocusCycles_CycleId1",
-                        column: x => x.CycleId1,
-                        principalTable: "FocusCycles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_FocusCycles_UserId",
+                table: "FocusCycles",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FocusCycleSegments_CycleId_Index",
+                table: "FocusCycleSegments",
+                columns: new[] { "CycleId", "Index" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_FocusCycleSegments_CycleId_StartedAt",
                 table: "FocusCycleSegments",
                 columns: new[] { "CycleId", "StartedAt" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_FocusCycleSegments_CycleId1",
-                table: "FocusCycleSegments",
-                column: "CycleId1");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_FocusCycleSegments_FocusSessionId",
-                table: "FocusCycleSegments",
-                column: "FocusSessionId");
         }
 
         /// <inheritdoc />
