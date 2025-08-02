@@ -25,6 +25,8 @@ services:
         - "1433:1433"
       volumes:
         - ./sqlserver/data:/var/opt/mssql/data
+        - ./logs/sqlserver:/var/opt/mssql/log
+
 
   mongo:
     image: mongo:8.0.12
@@ -38,6 +40,7 @@ services:
       MONGO_INITDB_DATABASE: focuswave_db
     volumes:
       - mongo_data:/data/db
+      - ./logs/mongo:/var/log/mongodb
 
   zookeeper:
     container_name: zookeeper
@@ -59,6 +62,8 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     depends_on:
       - zookeeper
+    volumes:
+      - ./logs/kafka:/var/log/kafka
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -71,7 +76,39 @@ services:
     depends_on:
       - kafka
 
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - ./promtail/promtail-config.yaml:/etc/promtail/config.yml
+      - /var/log:/var/log:ro
+      - ./logs:/app/logs:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+
 
 volumes:
   mongo_data:
+  grafana-data:
+
 
