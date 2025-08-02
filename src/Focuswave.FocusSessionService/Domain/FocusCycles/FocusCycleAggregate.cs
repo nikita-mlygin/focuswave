@@ -145,7 +145,7 @@ public class FocusCycleAggregate
         return Unit.Default;
     }
 
-    public Fin<Unit> StartSession( // TODO add end cycle if break to long
+    public Fin<Unit> StartSession( // TODO add end cycle if break to long and just start new session
         Guid userId,
         DateTimeOffset sessionStartTime,
         IEventDispatcher ed
