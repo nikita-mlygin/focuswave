@@ -5,13 +5,31 @@ using Focuswave.Common.Infrastructure.Vault;
 using Focuswave.FocusSessionService.Infrastructure;
 using Focuswave.FocusSessionService.Persistence;
 using Focuswave.Integration.Events;
+using Serilog;
+using Serilog.Sinks.Grafana.Loki;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Logging.AddConsole();
+#region Logging
+var logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.GrafanaLoki(
+        "http://localhost:3100",
+        credentials: null,
+        labels:
+        [
+            new() { Key = "app", Value = "focus-session-service" },
+            new() { Key = "env", Value = "dev" },
+        ]
+    )
+    .CreateLogger();
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+Log.Logger = logger;
+
+builder.Host.UseSerilog();
+#endregion
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

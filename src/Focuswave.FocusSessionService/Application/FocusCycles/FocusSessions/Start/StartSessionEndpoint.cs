@@ -7,11 +7,15 @@ using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSessions.Start;
 
-public class StartSessionEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
-    : Endpoint<StartSessionRequest, Results<NoContent, BadRequest<string>, ProblemHttpResult>>
+public class StartSessionEndpoint(
+    IFocusCycleRepository repo,
+    IEventDispatcher ed,
+    ILogger<StartSessionEndpoint> logger
+) : Endpoint<StartSessionRequest, Results<NoContent, BadRequest<string>, ProblemHttpResult>>
 {
     private readonly IFocusCycleRepository repo = repo;
     private readonly IEventDispatcher ed = ed;
+    private readonly ILogger<StartSessionEndpoint> logger = logger;
 
     public override void Configure()
     {
@@ -24,6 +28,7 @@ public class StartSessionEndpoint(IFocusCycleRepository repo, IEventDispatcher e
         Results<NoContent, BadRequest<string>, ProblemHttpResult>
     > ExecuteAsync(StartSessionRequest req, CancellationToken ct)
     {
+        logger.LogInformation("Attempting to start session for user {UserId}", req.UserId);
         var maybeCycle = await repo.GetByUserIdAsync(req.UserId);
 
         Fin<FocusCycleAggregate> res = maybeCycle
@@ -34,7 +39,10 @@ public class StartSessionEndpoint(IFocusCycleRepository repo, IEventDispatcher e
             .Bind(cycle => cycle.StartSession(req.UserId, req.StartTime, ed).Map(_ => cycle));
 
         if (res.IsSucc)
+        {
             await repo.SaveAsync(res.ThrowIfFail());
+            logger.LogInformation("Successfully started session for user {UserId}", req.UserId);
+        }
 
         await ed.DispatchAsync(ct);
 

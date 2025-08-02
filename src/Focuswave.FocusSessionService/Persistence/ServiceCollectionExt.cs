@@ -15,7 +15,7 @@ public static class ServiceCollectionExt
         string databaseName
     )
     {
-        services.AddSingleton<IFocusCycleRepository, FocusCycleRepository>(_ =>
+        services.AddSingleton<IFocusCycleRepository, FocusCycleRepository>(services =>
         {
             var settings = MongoClientSettings.FromConnectionString(connectionString);
 
@@ -24,7 +24,10 @@ public static class ServiceCollectionExt
             var client = new MongoClient(connectionString);
             var db = client.GetDatabase(databaseName);
 
-            return new FocusCycleRepository(db);
+            return new FocusCycleRepository(
+                db,
+                services.GetRequiredService<ILogger<FocusCycleRepository>>()
+            );
         });
 
         return services;

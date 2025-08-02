@@ -9,8 +9,10 @@ using ReturnType = Results<Ok<FocusSessionStateDto>, NotFound>;
 
 public record GetSessionStateRequest([FromRoute] Guid UserId);
 
-public class GetSessionStateEndpoint(IFocusCycleRepository repo)
-    : Endpoint<GetSessionStateRequest, ReturnType>
+public class GetSessionStateEndpoint(
+    IFocusCycleRepository repo,
+    ILogger<GetSessionStateEndpoint> logger
+) : Endpoint<GetSessionStateRequest, ReturnType>
 {
     public override void Configure()
     {
@@ -25,6 +27,7 @@ public class GetSessionStateEndpoint(IFocusCycleRepository repo)
         CancellationToken ct
     )
     {
+        logger.LogInformation("Attempting to get session state for user {UserId}", req.UserId);
         var maybeCycle = await repo.GetByUserIdAsync(req.UserId);
 
         return maybeCycle.Match<ReturnType>(
@@ -44,9 +47,18 @@ public class GetSessionStateEndpoint(IFocusCycleRepository repo)
                     )
                 );
 
+                logger.LogInformation(
+                    "Successfully retrieved session state for user {UserId}",
+                    req.UserId
+                );
+
                 return TypedResults.Ok(dto);
             },
-            None: () => TypedResults.NotFound()
+            None: () =>
+            {
+                logger.LogWarning("No active focus cycle found for user {UserId}", req.UserId);
+                return TypedResults.NotFound();
+            }
         );
     }
 }

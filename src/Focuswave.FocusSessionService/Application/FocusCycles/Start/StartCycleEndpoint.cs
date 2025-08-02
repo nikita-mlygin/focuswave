@@ -2,6 +2,7 @@ using FastEndpoints;
 using Focuswave.Common.DomainEvents;
 using Focuswave.FocusSessionService.Domain.FocusCycles;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Extensions.Logging;
 
 namespace Focuswave.FocusSessionService.Application.FocusCycles.Start;
 
@@ -14,9 +15,14 @@ using ReturnType = Results<NoContent, BadRequest<string>>;
 /// </summary>
 /// <param name="repo">The repository for focus cycle data access.</param>
 /// <param name="ed">The event dispatcher for handling domain events.</param>
-public class StartCycleEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
-    : Endpoint<StartCycleRequest, ReturnType>
+public class StartCycleEndpoint(
+    IFocusCycleRepository repo,
+    IEventDispatcher ed,
+    ILogger<StartCycleEndpoint> logger
+) : Endpoint<StartCycleRequest, ReturnType>
 {
+    private readonly ILogger<StartCycleEndpoint> _logger = logger;
+
     /// <summary>
     /// Configures the endpoint's route, permissions, and grouping.
     /// </summary>
@@ -38,8 +44,13 @@ public class StartCycleEndpoint(IFocusCycleRepository repo, IEventDispatcher ed)
     /// <returns>A result indicating success (NoContent) or failure (ProblemHttpResult).</returns>
     public override async Task<ReturnType> ExecuteAsync(StartCycleRequest req, CancellationToken ct)
     {
+        _logger.LogInformation("Starting StartCycleEndpoint for UserId: {UserId}", req.UserId);
+
         if (await repo.GetByUserIdAsync(req.UserId) != null)
+        {
+            _logger.LogWarning("Focus cycle already exists for UserId: {UserId}", req.UserId);
             return TypedResults.BadRequest("Already created");
+        }
 
         // The aggregate creation encapsulates business logic and validation.
         var res = FocusCycleAggregate.Create(req.UserId, req.StartTime, ed);

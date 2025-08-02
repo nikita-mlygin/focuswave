@@ -6,8 +6,10 @@ using Focuswave.Integration.Events;
 
 namespace Focuswave.FocusSessionService.Application.FocusCycles.FocusSessions.End;
 
-public class FocusSessionEndedHandler(IProducer<string, FocusCycleEvent> kafka)
-    : IEventHandler<FocusSessionEnded>
+public class FocusSessionEndedHandler(
+    IProducer<string, FocusCycleEvent> kafka,
+    ILogger<FocusSessionEndedHandler> logger
+) : IEventHandler<FocusSessionEnded>
 {
     public async Task HandleAsync(FocusSessionEnded e, CancellationToken ct)
     {
@@ -21,6 +23,11 @@ public class FocusSessionEndedHandler(IProducer<string, FocusCycleEvent> kafka)
             "focus-cycle-events",
             new Message<string, FocusCycleEvent> { Key = e.FocusCycleId.ToString(), Value = ev },
             ct
+        );
+
+        logger.LogInformation(
+            "Successfully produced FocusSessionEnded event to Kafka for FocusCycleId: {FocusCycleId}",
+            e.FocusCycleId
         );
     }
 }
